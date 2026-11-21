@@ -1,0 +1,5 @@
+query_id,platform,warehouse_name,credits_used,execution_time_ms,user_name,team,project_id,start_time,end_time,region
+sf-q-9001,snowflake,ML_FEATURE_WH,1.45,42100,svc_feature_pipeline,ml-platform,feature-store,2026-11-20T10:00:00Z,2026-11-20T10:00:42Z,us-east-1
+sf-q-9002,snowflake,ANALYTICS_WH,2.10,61300,alice_bi,data-analytics,bi-reporting,2026-11-20T10:15:00Z,2026-11-20T10:16:01Z,us-east-1
+sf-q-9003,snowflake,ETL_PROD_WH,3.80,115000,airflow_etl,,,2026-11-20T11:00:00Z,2026-11-20T11:01:55Z,us-east-1
+dbx-q-1004,databricks,DBRX_SQL_PRO,4.50,88500,llm_eval_job,ml-platform,llm-eval,2026-11-20T12:00:00Z,2026-11-20T12:01:28Z,us-west-2

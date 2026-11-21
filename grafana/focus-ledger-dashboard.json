@@ -1,0 +1,147 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "Total FOCUS Effective Cost (USD)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "focus_ledger_total_effective_cost_usd",
+          "legendFormat": "Total Spend",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 9, "x": 6, "y": 0 },
+      "id": 2,
+      "title": "Effective Cost by Team",
+      "type": "bargauge",
+      "targets": [
+        {
+          "expr": "sum by (team) (focus_ledger_effective_cost_usd)",
+          "legendFormat": "{{team}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 9, "x": 15, "y": 0 },
+      "id": 3,
+      "title": "AI Inference Cost by Model",
+      "type": "piechart",
+      "targets": [
+        {
+          "expr": "sum by (model) (focus_ledger_effective_cost_usd{source=\"ai-gateway\"})",
+          "legendFormat": "{{model}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 4,
+      "title": "Cost Attribution by Source & Service",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (source, service) (focus_ledger_effective_cost_usd)",
+          "legendFormat": "{{source}} / {{service}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 5,
+      "title": "AI Gateway Tokens by Model & Token Type",
+      "type": "barchart",
+      "targets": [
+        {
+          "expr": "sum by (model, token_type) (focus_ledger_ai_tokens_total)",
+          "legendFormat": "{{model}} ({{token_type}})",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["finops", "focus-1.5", "ai-cost", "kubernetes"],
+  "templating": { "list": [] },
+  "time": { "from": "now-24h", "to": "now" },
+  "title": "Focus Ledger — Unified FinOps & AI Cost Attribution (FOCUS 1.5)",
+  "uid": "focus-ledger-overview",
+  "version": 1
+}

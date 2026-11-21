@@ -1,0 +1,75 @@
+{
+  "code": 200,
+  "data": [
+    {
+      "ml-platform/inference-gateway": {
+        "name": "inference-gateway",
+        "window": {
+          "start": "2026-11-20T00:00:00Z",
+          "end": "2026-11-21T00:00:00Z"
+        },
+        "properties": {
+          "cluster": "eks-prod-us-east",
+          "namespace": "ml-platform",
+          "controller": "deployment/inference-gateway",
+          "labels": {
+            "team": "ml-platform",
+            "project_id": "agent-copilot"
+          }
+        },
+        "cpuCoreHours": 192.0,
+        "ramByteHours": 824633720832,
+        "pvByteHours": 107374182400,
+        "cpuCost": 6.0693,
+        "ramCost": 3.254,
+        "pvCost": 0.014,
+        "networkCost": 0.42,
+        "totalCost": 9.7573
+      },
+      "data-engineering/spark-executor": {
+        "name": "spark-executor",
+        "window": {
+          "start": "2026-11-20T00:00:00Z",
+          "end": "2026-11-21T00:00:00Z"
+        },
+        "properties": {
+          "cluster": "eks-prod-us-east",
+          "namespace": "data-engineering",
+          "controller": "statefulset/spark-executor",
+          "labels": {
+            "team": "data-engineering",
+            "project_id": "core-etl"
+          }
+        },
+        "cpuCoreHours": 320.0,
+        "ramByteHours": 1374389534720,
+        "pvByteHours": 536870912000,
+        "cpuCost": 10.1155,
+        "ramCost": 5.423,
+        "pvCost": 0.07,
+        "networkCost": 1.15,
+        "totalCost": 16.7585
+      },
+      "support-ops/triage-api": {
+        "name": "triage-api",
+        "window": {
+          "start": "2026-11-20T00:00:00Z",
+          "end": "2026-11-21T00:00:00Z"
+        },
+        "properties": {
+          "cluster": "eks-prod-us-east",
+          "namespace": "support-ops",
+          "controller": "deployment/triage-api",
+          "labels": {
+            "team": "support-ops",
+            "project_id": "ticket-triage"
+          }
+        },
+        "cpuCoreHours": 48.0,
+        "ramByteHours": 103079215104,
+        "pvByteHours": 0,
+        "totalCost": 2.04
+      }
+    }
+  ]
+}

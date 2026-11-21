@@ -1,0 +1,20 @@
+services:
+  focus-ledger:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: focus-ledger
+    ports:
+      - "9110:9110"
+    volumes:
+      - focus_ledger_data:/data
+    command: ["serve", "--host", "0.0.0.0", "--port", "9110", "--db", "/data/focus_ledger.duckdb"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9110/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  focus_ledger_data:

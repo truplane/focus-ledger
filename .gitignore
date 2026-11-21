@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments & secrets
+.venv/
+venv/
+.env
+.env.*
+
+# Runtime databases & exported artifacts
+*.duckdb
+*.duckdb.wal
+*.parquet
+data/
+out/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

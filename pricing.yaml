@@ -1,0 +1,66 @@
+# Focus Ledger Configurable Price Sheet
+# AI gateway prices are USD per 1,000,000 tokens.
+currency: USD
+
+ai_models:
+  gpt-4o:
+    provider: OpenAI
+    input_per_1m: 2.50
+    output_per_1m: 10.00
+    cached_per_1m: 1.25
+  gpt-4o-mini:
+    provider: OpenAI
+    input_per_1m: 0.15
+    output_per_1m: 0.60
+    cached_per_1m: 0.075
+  claude-3-5-sonnet:
+    provider: Anthropic
+    input_per_1m: 3.00
+    output_per_1m: 15.00
+    cached_per_1m: 0.30
+  claude-3-5-haiku:
+    provider: Anthropic
+    input_per_1m: 0.80
+    output_per_1m: 4.00
+    cached_per_1m: 0.08
+  llama-3.3-70b-instruct:
+    provider: LiteLLM
+    input_per_1m: 0.59
+    output_per_1m: 0.79
+    cached_per_1m: 0.30
+  mirevox/smart-router-auto:
+    provider: Mirevox
+    input_per_1m: 0.90
+    output_per_1m: 2.70
+    cached_per_1m: 0.25
+  default:
+    provider: AI Gateway
+    input_per_1m: 1.00
+    output_per_1m: 3.00
+    cached_per_1m: 0.25
+
+kubernetes:
+  cpu_core_hour_usd: 0.031611
+  ram_gb_hour_usd: 0.004237
+  pv_gb_hour_usd: 0.00014
+
+warehouse:
+  default_credit_usd: 3.00
+  platforms:
+    snowflake:
+      credit_usd: 3.00
+    databricks:
+      credit_usd: 0.55
+  cost_centers:
+    ANALYTICS_WH:
+      team: data-analytics
+      project_id: bi-reporting
+    ML_FEATURE_WH:
+      team: ml-platform
+      project_id: feature-store
+    ETL_PROD_WH:
+      team: data-engineering
+      project_id: core-etl
+    DBRX_SQL_PRO:
+      team: ml-platform
+      project_id: llm-eval
