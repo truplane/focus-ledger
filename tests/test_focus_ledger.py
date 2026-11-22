@@ -113,18 +113,18 @@ def test_duckdb_storage_partitioned_parquet_and_aggregation(tmp_path: Path) -> N
     inserted = storage.insert_records(all_records, write_parquet=True)
     assert inserted == 12
 
-    # Check Hive-partitioned Parquet directories exist for each source
+    # Check Hive-partitioned Parquet directories exist for each source and billing_month
     for source in ("ai-gateway", "k8s-opencost", "warehouse"):
         part_dir = storage.parquet_dir / f"x_source={source}"
         assert part_dir.is_dir()
-        assert any(part_dir.glob("*.parquet"))
+        assert any(part_dir.glob("billing_month=*/data_0.parquet"))
 
     # Verify Parquet file contains FOCUS 1.5 columns
     con = duckdb.connect()
     cols = [
         r[0]
         for r in con.execute(
-            f"DESCRIBE SELECT * FROM read_parquet('{(storage.parquet_dir / '**' / '*.parquet').as_posix()}')"
+            f"DESCRIBE SELECT * FROM read_parquet('{(storage.parquet_dir / '**' / '*.parquet').as_posix()}', hive_partitioning=false)"
         ).fetchall()
     ]
     for required_col in ("BillingAccountId", "EffectiveCost", "ServiceName", "x_team", "x_model"):
@@ -195,3 +195,63 @@ def test_cli_and_fastapi_metrics_endpoints(tmp_path: Path) -> None:
     assert 'team="ml-platform"' in text
     assert 'model="gpt-4o"' in text
     assert "focus_ledger_total_effective_cost_usd" in text
+
+
+def test_incremental_partition_refresh_preserves_untouched_months(tmp_path: Path) -> None:
+    pricing = PricingBook.load(PRICING_FILE)
+    ingestor = get_ingestor("ai-gateway")
+
+    nov_jsonl = tmp_path / "nov.jsonl"
+    dec_jsonl = tmp_path / "dec.jsonl"
+    nov_jsonl.write_text(
+        json.dumps(
+            {
+                "request_id": "req-nov-1",
+                "timestamp": "2026-11-15T10:00:00Z",
+                "model": "gpt-4o",
+                "input_tokens": 1000,
+                "output_tokens": 500,
+                "team": "ml-platform",
+                "project_id": "copilot",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    dec_jsonl.write_text(
+        json.dumps(
+            {
+                "request_id": "req-dec-1",
+                "timestamp": "2026-12-01T10:00:00Z",
+                "model": "gpt-4o-mini",
+                "input_tokens": 2000,
+                "output_tokens": 500,
+                "team": "ml-platform",
+                "project_id": "copilot",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    storage = FocusStorage(tmp_path / "inc.duckdb")
+    storage.insert_records(ingestor.parse(nov_jsonl, pricing), write_parquet=True)
+    nov_pq = (
+        storage.parquet_dir
+        / "x_source=ai-gateway"
+        / "billing_month=2026-11"
+        / "data_0.parquet"
+    )
+    assert nov_pq.is_file()
+    nov_mtime_before = nov_pq.stat().st_mtime_ns
+
+    storage.insert_records(ingestor.parse(dec_jsonl, pricing), write_parquet=True)
+    dec_pq = (
+        storage.parquet_dir
+        / "x_source=ai-gateway"
+        / "billing_month=2026-12"
+        / "data_0.parquet"
+    )
+    assert dec_pq.is_file()
+    assert nov_pq.stat().st_mtime_ns == nov_mtime_before
+

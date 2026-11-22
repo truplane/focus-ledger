@@ -92,7 +92,7 @@ def create_app(db_path: Path | str = "focus_ledger.duckdb") -> FastAPI:
     storage = FocusStorage(db_path)
     app = FastAPI(
         title="Focus Ledger FinOps Metrics API",
-        version="0.1.0",
+        version="0.2.0",
         description="Exposes FinOps FOCUS 1.5 cost attribution metrics for Prometheus.",
     )
 

@@ -120,28 +120,43 @@ class FocusStorage:
             [row_dict[col] for col in FOCUS_COLUMNS]
             for row_dict in (rec.to_storage_row() for rec in records)
         ]
+        touched_partitions = sorted(
+            {(rec.x_source, rec.BillingPeriodStart.strftime("%Y-%m")) for rec in records}
+        )
 
         with self._connect() as con:
             self.ensure_schema(con)
             con.executemany(sql, rows)
             if write_parquet:
-                self._export_partitioned_parquet(con)
+                self._export_partitioned_parquet(con, touched_partitions)
         return len(records)
 
-    def _export_partitioned_parquet(self, con: duckdb.DuckDBPyConnection) -> None:
-        """Write full FOCUS 1.5 ledger partitioned by x_source as Parquet."""
-        staging = self.parquet_dir.parent / f".{self.parquet_dir.name}.tmp"
-        if staging.exists():
-            shutil.rmtree(staging)
-        staging.mkdir(parents=True, exist_ok=True)
-        posix_target = staging.as_posix().replace("'", "''")
-        con.execute(
-            f"COPY (SELECT * FROM focus_ledger) TO '{posix_target}' "
-            "(FORMAT PARQUET, PARTITION_BY (x_source))"
-        )
-        if self.parquet_dir.exists():
-            shutil.rmtree(self.parquet_dir)
-        staging.rename(self.parquet_dir)
+    def _export_partitioned_parquet(
+        self,
+        con: duckdb.DuckDBPyConnection,
+        touched_partitions: list[tuple[str, str]],
+    ) -> None:
+        """Incrementally refresh only touched (x_source, billing_month) Parquet partitions."""
+        for source, billing_month in touched_partitions:
+            part_dir = self.parquet_dir / f"x_source={source}" / f"billing_month={billing_month}"
+            part_dir.mkdir(parents=True, exist_ok=True)
+            target_file = part_dir / "data_0.parquet"
+            tmp_file = part_dir / ".data_0.parquet.tmp"
+            if tmp_file.exists():
+                tmp_file.unlink()
+            posix_tmp = tmp_file.as_posix().replace("'", "''")
+            src_lit = "'" + source.replace("'", "''") + "'"
+            ym_lit = "'" + billing_month.replace("'", "''") + "'"
+            con.execute(
+                f"""
+                COPY (
+                    SELECT * FROM focus_ledger
+                    WHERE x_source = {src_lit}
+                      AND strftime(timezone('UTC', BillingPeriodStart), '%Y-%m') = {ym_lit}
+                ) TO '{posix_tmp}' (FORMAT PARQUET)
+                """
+            )
+            tmp_file.replace(target_file)
 
     def aggregate(self, group_by: GroupByDimension) -> list[dict[str, Any]]:
         """Aggregate FOCUS spend and token usage by the requested dimension."""
