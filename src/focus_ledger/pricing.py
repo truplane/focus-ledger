@@ -90,6 +90,38 @@ DEFAULT_PRICING: dict[str, Any] = {
         },
         "cost_centers": {},
     },
+    "cloud_skus": {
+        "aws_db_instance": {
+            "default": 145.0,
+            "db.t3.micro": 14.5,
+            "db.t3.medium": 58.0,
+            "db.r6g.large": 189.0,
+            "db.r6g.xlarge": 378.0,
+            "db.r6g.4xlarge": 1512.0,
+        },
+        "aws_rds_cluster": {
+            "default": 290.0,
+            "db.r6g.large": 210.0,
+            "db.r6g.4xlarge": 1680.0,
+        },
+        "aws_instance": {
+            "default": 68.0,
+            "t3.micro": 7.6,
+            "m6i.large": 70.08,
+            "m6i.xlarge": 140.16,
+            "m6i.2xlarge": 280.32,
+            "c6i.xlarge": 124.10,
+            "c6i.2xlarge": 248.20,
+        },
+        "aws_eks_cluster": {"default": 73.0},
+        "aws_s3_bucket": {"default": 5.0},
+        "google_sql_database_instance": {
+            "default": 140.0,
+            "db-custom-2-8192": 112.0,
+            "db-custom-8-32768": 448.0,
+        },
+        "azurerm_mssql_server": {"default": 150.0},
+    },
 }
 
 
@@ -110,6 +142,11 @@ class PricingBook:
             k: float(v) for k, v in raw.get("kubernetes", {}).items()
         }
         self.warehouse: dict[str, Any] = dict(raw.get("warehouse", {}))
+        self.cloud_skus: dict[str, dict[str, float]] = {
+            str(rtype).lower(): {str(sku).lower(): float(val) for sku, val in skus.items()}
+            for rtype, skus in raw.get("cloud_skus", {}).items()
+            if isinstance(skus, dict)
+        }
 
     @classmethod
     def load(cls, path: Path | str | None = None) -> "PricingBook":
@@ -183,3 +220,30 @@ class PricingBook:
             cfg = centers[warehouse_name]
             return str(cfg.get("team", "unallocated")), str(cfg.get("project_id", "default"))
         return None
+
+    def get_cloud_sku_rate(
+        self,
+        resource_type: str,
+        instance_type: str | None = None,
+    ) -> dict[str, Any]:
+        """Resolve SKU-aware monthly and hourly USD pricing for IaC cost estimation."""
+        rtype = resource_type.strip().lower()
+        sku_key = instance_type.strip().lower() if instance_type else "default"
+        table = self.cloud_skus.get(rtype, {})
+        if sku_key in table:
+            monthly = float(table[sku_key])
+            matched = sku_key
+        elif "default" in table:
+            monthly = float(table["default"])
+            matched = "default"
+        else:
+            monthly = 10.0
+            matched = "fallback"
+        return {
+            "resource_type": rtype,
+            "instance_type": instance_type or "default",
+            "matched_sku": matched,
+            "monthly_usd": round(monthly, 4),
+            "hourly_usd": round(monthly / 730.0, 6),
+            "currency": self.currency,
+        }

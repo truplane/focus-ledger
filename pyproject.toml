@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "focus-ledger"
-version = "0.2.0"
+version = "0.3.0"
 description = "Unified FinOps & AI Cost Attribution Engine normalizing cloud, Kubernetes, warehouse, and AI gateway telemetry into FinOps FOCUS 1.5."
 readme = "README.md"
 license = { text = "Apache-2.0" }

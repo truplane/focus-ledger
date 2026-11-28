@@ -255,3 +255,109 @@ def test_incremental_partition_refresh_preserves_untouched_months(tmp_path: Path
     assert dec_pq.is_file()
     assert nov_pq.stat().st_mtime_ns == nov_mtime_before
 
+
+def test_v3_sku_pricing_events_anomalies_and_opencost_connector(tmp_path: Path) -> None:
+    from focus_ledger.anomalies import detect_spend_anomalies
+    from focus_ledger.connectors import OpenCostPullConnector
+
+    db_path = tmp_path / "v3_hub.duckdb"
+    storage = FocusStorage(db_path)
+
+    # 1. Test OpenCostPullConnector using mock HTTP fetcher
+    sample_opencost = json.loads((EXAMPLES_DIR / "k8s_opencost_sample.json").read_text(encoding="utf-8"))
+    connector = OpenCostPullConnector(
+        base_url="http://opencost.local:9003",
+        storage=storage,
+        pricing=PricingBook.load(PRICING_FILE),
+        fetcher=lambda _url: sample_opencost,
+    )
+    polled = connector.poll_once()
+    assert polled == 3
+
+    # 2. Test FastAPI v3 endpoints: SKU pricing, savings event, quality-cost event
+    api = create_app(db_path, pricing_path=PRICING_FILE)
+    client = TestClient(api)
+
+    sku_resp = client.get("/v1/pricing/sku", params={"resource_type": "aws_db_instance", "instance_type": "db.r6g.4xlarge"})
+    assert sku_resp.status_code == 200
+    assert sku_resp.json()["monthly_usd"] == pytest.approx(1512.0)
+
+    sav_resp = client.post(
+        "/v1/events/savings",
+        json={
+            "namespace": "prod",
+            "policy": "ml-router-safescale",
+            "workload": "ml-router",
+            "team": "ml-platform",
+            "project_id": "agent-copilot",
+            "cpu_milli_saved": 500,
+            "memory_mib_saved": 512,
+            "monthly_savings_usd": 47.5,
+        },
+    )
+    assert sav_resp.status_code == 200
+    assert sav_resp.json()["status"] == "recorded"
+
+    qual_resp = client.post(
+        "/v1/events/quality-cost",
+        json={
+            "pipeline": "feature_etl",
+            "dataset": "features.parquet",
+            "team": "data-engineering",
+            "project_id": "feature-store",
+            "failed_checks": 3,
+            "reprocessing_cost_usd": 42.5,
+        },
+    )
+    assert qual_resp.status_code == 200
+    assert qual_resp.json()["status"] == "recorded"
+
+    # 3. Seed 5 normal AI calls + 1 massive 3-sigma spike and verify anomaly detection
+    spike_jsonl = tmp_path / "spike.jsonl"
+    lines = []
+    for i in range(5):
+        lines.append(
+            json.dumps(
+                {
+                    "request_id": f"norm-{i}",
+                    "timestamp": f"2026-11-20T10:0{i}:00Z",
+                    "model": "gpt-4o-mini",
+                    "input_tokens": 10000,
+                    "output_tokens": 2000,
+                    "team": "ml-platform",
+                    "project_id": "agent-copilot",
+                }
+            )
+        )
+    lines.append(
+        json.dumps(
+            {
+                "request_id": "spike-999",
+                "timestamp": "2026-11-20T10:59:00Z",
+                "model": "gpt-4o",
+                "input_tokens": 5_000_000,
+                "output_tokens": 1_000_000,
+                "team": "ml-platform",
+                "project_id": "agent-copilot",
+            }
+        )
+    )
+    spike_jsonl.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    storage.insert_records(
+        get_ingestor("ai-gateway").parse(spike_jsonl, PricingBook.load(PRICING_FILE)),
+        write_parquet=True,
+    )
+
+    anom_resp = client.get("/v1/anomalies", params={"z_threshold": 3.0})
+    assert anom_resp.status_code == 200
+    anom_data = anom_resp.json()
+    assert anom_data["count"] >= 1
+    assert any(a["resource_id"] == "spike-999" for a in anom_data["anomalies"])
+    assert len(detect_spend_anomalies(storage, z_threshold=3.0)) >= 1
+
+    metrics_text = client.get("/metrics").text
+    assert "focus_ledger_rightsizing_savings_usd" in metrics_text
+    assert "focus_ledger_data_quality_cost_usd" in metrics_text
+    assert "focus_ledger_spend_anomaly_zscore" in metrics_text
+
+

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from enum import Enum
 from pathlib import Path
 from typing import Optional
@@ -12,6 +13,8 @@ import uvicorn
 from rich.console import Console
 from rich.table import Table
 
+from focus_ledger.anomalies import detect_spend_anomalies
+from focus_ledger.connectors import OpenCostPullConnector
 from focus_ledger.ingestors import get_ingestor, list_sources
 from focus_ledger.pricing import PricingBook
 from focus_ledger.server import create_app
@@ -163,6 +166,70 @@ def serve(
     """Start the Prometheus metrics and health HTTP server."""
     fastapi_app = create_app(db)
     uvicorn.run(fastapi_app, host=host, port=port, log_level="info")
+
+
+@app.command()
+def poll(
+    opencost_url: str = typer.Option(
+        ...,
+        "--opencost-url",
+        help="Base URL of OpenCost API (e.g., http://opencost.opencost:9003).",
+    ),
+    db: Path = typer.Option(
+        Path("focus_ledger.duckdb"),
+        "--db",
+        help="Path to embedded DuckDB database file.",
+    ),
+    interval: int = typer.Option(60, "--interval", help="Polling interval in seconds."),
+    once: bool = typer.Option(False, "--once", help="Run one polling cycle and exit."),
+) -> None:
+    """Poll live OpenCost allocations into DuckDB and partitioned Parquet."""
+    storage = FocusStorage(db)
+    connector = OpenCostPullConnector(base_url=opencost_url, storage=storage)
+    while True:
+        count = connector.poll_once()
+        typer.echo(f"Polled {count} OpenCost allocation records from {opencost_url} -> {db}")
+        if once:
+            return
+        time.sleep(max(interval, 1))
+
+
+@app.command()
+def anomalies(
+    db: Path = typer.Option(
+        Path("focus_ledger.duckdb"),
+        "--db",
+        help="Path to embedded DuckDB database file.",
+    ),
+    z_threshold: float = typer.Option(3.0, "--z-threshold", help="Z-score spike threshold."),
+    output_format: str = typer.Option("table", "--format", "-f", help="table or json"),
+) -> None:
+    """Detect >3-sigma spend anomalies across teams and sources."""
+    storage = FocusStorage(db)
+    hits = detect_spend_anomalies(storage, z_threshold=z_threshold)
+    if output_format.lower() == "json":
+        typer.echo(json.dumps({"z_threshold": z_threshold, "anomalies": hits}, indent=2))
+        return
+    if not hits:
+        typer.echo(f"No spend anomalies exceeding {z_threshold} sigma detected.")
+        return
+    tbl = Table(title=f"Spend Anomalies (>= {z_threshold} sigma)")
+    tbl.add_column("Source")
+    tbl.add_column("Team")
+    tbl.add_column("Resource")
+    tbl.add_column("Cost (USD)", justify="right")
+    tbl.add_column("Baseline Mean", justify="right")
+    tbl.add_column("Z-Score", justify="right", style="red")
+    for h in hits:
+        tbl.add_row(
+            str(h["source"]),
+            str(h["team"]),
+            str(h["resource_id"]),
+            f"${h['effective_cost_usd']:.4f}",
+            f"${h['baseline_mean_usd']:.4f}",
+            f"{h['z_score']:.2f}",
+        )
+    console.print(tbl)
 
 
 if __name__ == "__main__":

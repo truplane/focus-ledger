@@ -64,3 +64,34 @@ warehouse:
     DBRX_SQL_PRO:
       team: ml-platform
       project_id: llm-eval
+
+cloud_skus:
+  aws_db_instance:
+    default: 145.00
+    db.t3.micro: 14.50
+    db.t3.medium: 58.00
+    db.r6g.large: 189.00
+    db.r6g.xlarge: 378.00
+    db.r6g.4xlarge: 1512.00
+  aws_rds_cluster:
+    default: 290.00
+    db.r6g.large: 210.00
+    db.r6g.4xlarge: 1680.00
+  aws_instance:
+    default: 68.00
+    t3.micro: 7.60
+    m6i.large: 70.08
+    m6i.xlarge: 140.16
+    m6i.2xlarge: 280.32
+    c6i.xlarge: 124.10
+    c6i.2xlarge: 248.20
+  aws_eks_cluster:
+    default: 73.00
+  aws_s3_bucket:
+    default: 5.00
+  google_sql_database_instance:
+    default: 140.00
+    db-custom-2-8192: 112.00
+    db-custom-8-32768: 448.00
+  azurerm_mssql_server:
+    default: 150.00
